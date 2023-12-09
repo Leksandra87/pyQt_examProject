@@ -89,6 +89,7 @@ class Window(QtWidgets.QWidget):
         lableRAMtotal = QtWidgets.QLabel('Объём памяти')
         lableRAMtotal.setMinimumWidth(120)
         self.RAMtotalLineEdit = QtWidgets.QLineEdit()
+        self.RAMtotalLineEdit.setText(str(psutil.virtual_memory().total))
         self.RAMtotalLineEdit.setReadOnly(True)
         layoutRAMtotal = QtWidgets.QHBoxLayout()
         layoutRAMtotal.addWidget(lableRAMtotal)
@@ -176,9 +177,10 @@ class Window(QtWidgets.QWidget):
         self.systemInfo.systemInfoReceived.connect(self.setProcInfo)
 
     def setProcInfo(self, data):
-        print(data[0])
         self.ProcessorLoadLineEdit.setText(str(data[0]))
         self.ProcessorLoadPB.setValue(data[0])
+        self.RAMcurrentLineEdit.setText(str(data[1]))
+        self.RAMload.setValue(data[1])
 
 
 
