@@ -20,14 +20,14 @@ class SystemInfo(QtCore.QThread):
         self.status = True
 
         while self.status:
-            sys_info = []
-            print(psutil.cpu_percent())
-            sys_info.append(psutil.cpu_percent())  # загрузка процессора
+            sys_info = [psutil.cpu_percent(), psutil.virtual_memory().percent]
+            # print(psutil.cpu_percent(), self.timeout)
+            # sys_info.append(psutil.cpu_percent())  # загрузка процессора
             # print(psutil.virtual_memory().percent)
-            sys_info.append(psutil.virtual_memory().percent)  # загрузка оперативной памяти
+            # sys_info.append(psutil.virtual_memory().percent)  # загрузка оперативной памяти
+            # print(*sys_info)
 
             self.systemInfoReceived.emit(sys_info)
-
             time.sleep(self.timeout)
 
 
@@ -51,6 +51,7 @@ class Window(QtWidgets.QWidget):
         lableProcessorName = QtWidgets.QLabel("Процессор")
         lableProcessorName.setMinimumWidth(120)
         self.ProcNameLineEdit = QtWidgets.QLineEdit()
+        self.ProcNameLineEdit.setText(platform.uname().processor)
         self.ProcNameLineEdit.setReadOnly(True)
         layoutProcessor = QtWidgets.QHBoxLayout()
         layoutProcessor.addWidget(lableProcessorName)
@@ -59,6 +60,7 @@ class Window(QtWidgets.QWidget):
         lableCores = QtWidgets.QLabel("Количество ядер")
         lableCores.setMinimumWidth(120)
         self.CoresLineEdit = QtWidgets.QLineEdit()
+        self.CoresLineEdit.setText(str(psutil.cpu_count(logical=True)))
         self.CoresLineEdit.setReadOnly(True)
         layoutCores = QtWidgets.QHBoxLayout()
         layoutCores.addWidget(lableCores)
@@ -67,7 +69,7 @@ class Window(QtWidgets.QWidget):
         lableProcessorLoad = QtWidgets.QLabel("Текущая загрузка")
         lableProcessorLoad.setMinimumWidth(120)
         self.ProcessorLoadLineEdit = QtWidgets.QLineEdit()
-        self.ProcessorLoadLineEdit.setReadOnly(True)
+        # self.ProcessorLoadLineEdit.setReadOnly(True)
         layoutProcessorLoad = QtWidgets.QHBoxLayout()
         layoutProcessorLoad.addWidget(lableProcessorLoad)
         layoutProcessorLoad.addWidget(self.ProcessorLoadLineEdit)
@@ -170,12 +172,11 @@ class Window(QtWidgets.QWidget):
 
         """
 
-        self.ComboBox.currentTextChanged.connect(self.setTimeoutForSysInfo(int(self.ComboBox.currentText())))
-        self.ProcNameLineEdit.setText(platform.uname().processor)
-        self.CoresLineEdit.setText(str(psutil.cpu_count(logical=True)))
+        self.ComboBox.currentTextChanged.connect(self.setTimeoutForSysInfo)
         self.systemInfo.systemInfoReceived.connect(self.setProcInfo)
 
     def setProcInfo(self, data):
+        print(data[0])
         self.ProcessorLoadLineEdit.setText(str(data[0]))
         self.ProcessorLoadPB.setValue(data[0])
 
@@ -197,7 +198,7 @@ class Window(QtWidgets.QWidget):
 
         """
 
-        self.systemInfo.timeout = value
+        self.systemInfo.timeout = int(value)
 
 
 
