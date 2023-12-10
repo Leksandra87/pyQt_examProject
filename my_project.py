@@ -6,7 +6,7 @@ import platform
 
 class SystemInfo(QtCore.QThread):
     """
-    поток для получения системной информации
+    Получение системной информации
 
     """
     systemInfoReceived = QtCore.Signal(list)
@@ -21,13 +21,48 @@ class SystemInfo(QtCore.QThread):
 
         while self.status:
             sys_info = [psutil.cpu_percent(), psutil.virtual_memory().percent]
-            # print(psutil.cpu_percent(), self.timeout)
-            # sys_info.append(psutil.cpu_percent())  # загрузка процессора
-            # print(psutil.virtual_memory().percent)
-            # sys_info.append(psutil.virtual_memory().percent)  # загрузка оперативной памяти
-            # print(*sys_info)
-
             self.systemInfoReceived.emit(sys_info)
+            time.sleep(self.timeout)
+
+
+class SystemServices(QtCore.QThread):
+    """
+    Получение информации о службах
+    """
+    systemServicesReceived = QtCore.Signal(str)
+
+    def __init__(self, timeout=1, parent=None):
+        super().__init__(parent)
+        self.timeout = timeout
+
+    def run(self) -> None:
+        while True:
+            services = list(psutil.win_service_iter())
+            data = ''
+            for value in services:
+                data += f'{value.pid()}, {value.name()}, {value.display_name()}, {value.status()}\n'
+
+            self.systemServicesReceived.emit(data)
+            time.sleep(self.timeout)
+
+
+class SystemProces(QtCore.QThread):
+    """
+    Получение информации о процессах
+    """
+    SystemProcReceived = QtCore.Signal(str)
+
+    def __init__(self, timeout=1, parent=None):
+        super().__init__(parent)
+        self.timeout = timeout
+
+    def run(self) -> None:
+        while True:
+            procs = list(psutil.process_iter())
+            data = ''
+            for value in procs:
+                data += f'{value.ppid()}, {value.name()}, {value.status()}\n'
+            self.SystemProcReceived.emit(data)
             time.sleep(self.timeout)
 
 
@@ -69,7 +104,7 @@ class Window(QtWidgets.QWidget):
         lableProcessorLoad = QtWidgets.QLabel("Текущая загрузка")
         lableProcessorLoad.setMinimumWidth(120)
         self.ProcessorLoadLineEdit = QtWidgets.QLineEdit()
-        # self.ProcessorLoadLineEdit.setReadOnly(True)
+        self.ProcessorLoadLineEdit.setReadOnly(True)
         layoutProcessorLoad = QtWidgets.QHBoxLayout()
         layoutProcessorLoad.addWidget(lableProcessorLoad)
         layoutProcessorLoad.addWidget(self.ProcessorLoadLineEdit)
@@ -89,7 +124,7 @@ class Window(QtWidgets.QWidget):
         lableRAMtotal = QtWidgets.QLabel('Объём памяти')
         lableRAMtotal.setMinimumWidth(120)
         self.RAMtotalLineEdit = QtWidgets.QLineEdit()
-        self.RAMtotalLineEdit.setText(str(psutil.virtual_memory().total))
+        self.RAMtotalLineEdit.setText(f'{psutil.virtual_memory().total / 1024} Kb')
         self.RAMtotalLineEdit.setReadOnly(True)
         layoutRAMtotal = QtWidgets.QHBoxLayout()
         layoutRAMtotal.addWidget(lableRAMtotal)
@@ -118,10 +153,12 @@ class Window(QtWidgets.QWidget):
         lableDisk.setMinimumWidth(160)
         self.DiskLineEdit = QtWidgets.QLineEdit()
         self.DiskLineEdit.setReadOnly(True)
+        self.DiskLineEdit.setText(str(len(psutil.disk_partitions())))
         layoutD = QtWidgets.QHBoxLayout()
         layoutD.addWidget(lableDisk)
         layoutD.addWidget(self.DiskLineEdit)
         self.DiskInfoPlaintext = QtWidgets.QPlainTextEdit()
+        self.DiskInfoPlaintext.setPlainText(self.setDiskInfo())
         layoutDisk = QtWidgets.QVBoxLayout()
         layoutDisk.addLayout(layoutD)
         layoutDisk.addWidget(self.DiskInfoPlaintext)
@@ -175,34 +212,66 @@ class Window(QtWidgets.QWidget):
 
         self.ComboBox.currentTextChanged.connect(self.setTimeoutForSysInfo)
         self.systemInfo.systemInfoReceived.connect(self.setProcInfo)
+        self.processInfoThread.SystemProcReceived.connect(self.updateProcessInfo)
+        self.serviceInfoThread.systemServicesReceived.connect(self.updateServiseInfo)
+
 
     def setProcInfo(self, data):
+        """
+        Получение информации о текущей загруженности процессора и оперативной памяти
+        """
+
         self.ProcessorLoadLineEdit.setText(str(data[0]))
         self.ProcessorLoadPB.setValue(data[0])
         self.RAMcurrentLineEdit.setText(str(data[1]))
         self.RAMload.setValue(data[1])
 
-
-
-
     def initThreads(self) -> None:
         """
-        Инициализация потока
-
-        :return:
+        Инициализация потоков
         """
         self.systemInfo = SystemInfo()
         self.systemInfo.start()
+        self.processInfoThread = SystemProces()
+        self.processInfoThread.start()
+        self.serviceInfoThread = SystemServices()
+        self.serviceInfoThread.start()
 
     def setTimeoutForSysInfo(self, value):
         """
         Установка частоты обновления информации в потоке
-
         """
 
         self.systemInfo.timeout = int(value)
+        self.serviceInfoThread.timeout = int(value)
+        self.processInfoThread.timeout = int(value)
 
+    def updateServiseInfo(self, data):
+        """
+        Вывод информации о службах
+        """
+        self.servisePlaintextedit.setPlainText(data)
 
+    def updateProcessInfo(self, data):
+        """
+        Вывод информации о процессах
+        """
+        self.proccesPlaintextEdit.setPlainText(data)
+
+    def setDiskInfo(self) -> str:
+        """
+        Вывод информации о дисках
+        """
+        partitions = psutil.disk_partitions()
+        data = ''
+        usage = psutil.disk_usage('/')
+        data += f'Общий объём памяти: {usage.total / 1024} Kb\n' \
+                f'Используется: {usage.used / 1024} Kb\n' \
+                f'Свободно: {usage.free / 1024} Kb\n' \
+                f'{usage.percent}\n'
+        for disc in partitions:
+            data += f'{disc.device}, {disc.fstype}\n'
+        return data
 
 
 if __name__ == "__main__":
