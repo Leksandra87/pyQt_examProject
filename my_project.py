@@ -61,7 +61,8 @@ class SystemProces(QtCore.QThread):
             procs = list(psutil.process_iter())
             data = ''
             for value in procs:
-                data += f'{value.ppid()}, {value.name()}, {value.status()}\n'
+                if psutil.pid_exists(value.ppid()):
+                    data += f'{value.ppid()}, {value.name()}, {value.status()}\n'
             self.SystemProcReceived.emit(data)
             time.sleep(self.timeout)
 
@@ -262,15 +263,15 @@ class Window(QtWidgets.QWidget):
         """
         Вывод информации о дисках
         """
-        partitions = psutil.disk_partitions()
+
         data = ''
-        usage = psutil.disk_usage('/')
-        data += f'Общий объём памяти: {usage.total / 1024} Kb\n' \
-                f'Используется: {usage.used / 1024} Kb\n' \
-                f'Свободно: {usage.free / 1024} Kb\n' \
-                f'{usage.percent}\n'
-        for disc in partitions:
-            data += f'{disc.device}, {disc.fstype}\n'
+        for disc in psutil.disk_partitions():
+            usage = psutil.disk_usage(disc.mountpoint)
+            data += f'{disc.device}, {disc.fstype}\n' \
+                    f'Общий объём памяти: {usage.total / 1024} Kb\n' \
+                    f'Используется: {usage.used / 1024} Kb\n' \
+                    f'Свободно: {usage.free / 1024} Kb\n' \
+                    f'{usage.percent}\n'
         return data
 
 
