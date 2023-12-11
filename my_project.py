@@ -83,6 +83,7 @@ class Window(QtWidgets.QWidget):
         :return: None
         """
         self.setWindowTitle('Мониторинг системы')
+        self.setMinimumSize(500, 600)
 
         lableProcessorName = QtWidgets.QLabel("Процессор")
         lableProcessorName.setMinimumWidth(120)
