@@ -6,8 +6,7 @@ import platform
 
 class SystemInfo(QtCore.QThread):
     """
-    Получение системной информации
-
+    Получение информации о процессоре и оперативной памяти
     """
     systemInfoReceived = QtCore.Signal(list)
 
@@ -58,11 +57,17 @@ class SystemProces(QtCore.QThread):
 
     def run(self) -> None:
         while True:
-            procs = list(psutil.process_iter())
             data = ''
-            for value in procs:
-                if psutil.pid_exists(value.ppid()):
+            for value in psutil.process_iter():
+                try:
                     data += f'{value.ppid()}, {value.name()}, {value.status()}\n'
+                except:
+                    print(f"Ошибка в данном процессе {value}")
+            # procs = list(psutil.process_iter())
+            # data = ''
+            # for value in procs:
+            #     if psutil.pid_exists(value.ppid()):
+            #         data += f'{value.ppid()}, {value.name()}, {value.status()}\n'
             self.SystemProcReceived.emit(data)
             time.sleep(self.timeout)
 
@@ -267,12 +272,15 @@ class Window(QtWidgets.QWidget):
 
         data = ''
         for disc in psutil.disk_partitions():
-            usage = psutil.disk_usage(disc.mountpoint)
-            data += f'{disc.device}, {disc.fstype}\n' \
-                    f'Общий объём памяти: {usage.total / 1024} Kb\n' \
-                    f'Используется: {usage.used / 1024} Kb\n' \
-                    f'Свободно: {usage.free / 1024} Kb\n' \
-                    f'{usage.percent}\n'
+            try:
+                usage = psutil.disk_usage(disc.mountpoint)
+                data += f'{disc.device}, {disc.fstype}\n' \
+                        f'Общий объём памяти: {usage.total / 1024} Kb\n' \
+                        f'Используется: {usage.used / 1024} Kb\n' \
+                        f'Свободно: {usage.free / 1024} Kb\n' \
+                        f'{usage.percent}\n'
+            except PermissionError:
+                print(f"Нет доступа к диску {disc.mountpoint}")
         return data
 
 
