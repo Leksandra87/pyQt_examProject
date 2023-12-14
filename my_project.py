@@ -2,6 +2,8 @@ from PySide6 import QtWidgets, QtCore
 import time
 import psutil
 import platform
+import pythoncom
+import win32com.client
 
 
 class SystemInfo(QtCore.QThread):
@@ -221,7 +223,7 @@ class Window(QtWidgets.QWidget):
         self.systemInfo.systemInfoReceived.connect(self.setProcInfo)
         self.processInfoThread.SystemProcReceived.connect(self.updateProcessInfo)
         self.serviceInfoThread.systemServicesReceived.connect(self.updateServiseInfo)
-
+        self.taskInfoThread.taskInfoReceived.connect(self.setTaskInfo)
 
     def setProcInfo(self, data):
         """
@@ -243,6 +245,8 @@ class Window(QtWidgets.QWidget):
         self.processInfoThread.start()
         self.serviceInfoThread = SystemServices()
         self.serviceInfoThread.start()
+        self.taskInfoThread = TaskInfo()
+        self.taskInfoThread.start()
 
     def setTimeoutForSysInfo(self, value):
         """
@@ -252,6 +256,7 @@ class Window(QtWidgets.QWidget):
         self.systemInfo.timeout = int(value)
         self.serviceInfoThread.timeout = int(value)
         self.processInfoThread.timeout = int(value)
+        self.taskInfoThread.timeout = int(value)
 
     def updateServiseInfo(self, data):
         """
@@ -282,6 +287,37 @@ class Window(QtWidgets.QWidget):
             except PermissionError:
                 print(f"Нет доступа к диску {disc.mountpoint}")
         return data
+
+    def setTaskInfo(self, data):
+        """
+        Вывод информации о задачах
+        """
+        self.tasksPlaintextEdit.setPlainText(data)
+
+
+class TaskInfo(QtCore.QThread):
+    taskInfoReceived = QtCore.Signal(str)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.timeout = 1
+
+    def run(self) -> None:
+        pythoncom.CoInitialize()
+
+        while True:
+            scheduler = win32com.client.dynamic.Dispatch('Schedule.Service')
+            scheduler.Connect()
+            # print(type(scheduler))
+            tasks = scheduler.GetRunningTasks(1)
+            names = ''
+            for i in range(tasks.Count):
+                names += f'Задача: {tasks.Item(i + 1).Name}, расположение: {tasks.Item(i + 1).Path}\n'
+
+            # names = [tasks.Item(i + 1).Name for i in range(tasks.Count)]
+            # print(names)
+            self.taskInfoReceived.emit(names)
+            time.sleep(self.timeout)
 
 
 if __name__ == "__main__":
